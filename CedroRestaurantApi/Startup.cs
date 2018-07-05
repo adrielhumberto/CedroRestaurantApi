@@ -1,13 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿
+using CedroRestaurantApi.Context;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.PlatformAbstractions;
+using Swashbuckle.AspNetCore.Swagger;
+using System.IO;
 
 namespace CedroRestaurantApi
 {
@@ -20,13 +20,37 @@ namespace CedroRestaurantApi
 
         public IConfiguration Configuration { get; }
 
-        // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
-        {
+        { 
             services.AddMvc();
-        }
+            services.AddCors(o => o.AddPolicy(
+                "AllowAllHeaders",
+                builder =>
+                {
+                    builder.AllowAnyOrigin()
+                        .AllowAnyMethod()
+                        .AllowAnyHeader();
+                }));
+            services.AddEntityFrameworkSqlServer();
+            services.AddDbContext<RestaurantContext>(options => options.UseSqlServer(Configuration.GetConnectionString("connectionString")));
+            services.AddSwaggerGen(options =>
+            {
+                options.SwaggerDoc("v1", new Info() { Title = "Cedro Restaurant Documentation", Version = "v1" });
 
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
+                //Comente para fazer algum migration....
+                //-----------------
+                string caminhoAplicacao =
+                    PlatformServices.Default.Application.ApplicationBasePath;
+                string nomeAplicacao =
+                    PlatformServices.Default.Application.ApplicationName;
+                string caminhoXmlDoc =
+                    Path.Combine(caminhoAplicacao, $"{nomeAplicacao}.xml");
+
+                options.IncludeXmlComments(caminhoXmlDoc); 
+                //------------------
+            });
+        }
+    
         public void Configure(IApplicationBuilder app, IHostingEnvironment env)
         {
             if (env.IsDevelopment())
@@ -34,6 +58,13 @@ namespace CedroRestaurantApi
                 app.UseDeveloperExceptionPage();
             }
 
+
+            app.UseSwagger();
+            app.UseSwaggerUI(options =>
+            {
+                options.SwaggerEndpoint("/swagger/v1/swagger.json", "Cedro Restaurant API");
+            });
+            app.UseCors("AllowAllHeaders");
             app.UseMvc();
         }
     }
